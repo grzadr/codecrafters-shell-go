@@ -4,7 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"strings"
+
+	"github.com/codecrafters-io/shell-starter-go/commands"
 )
 
 func main() {
@@ -14,13 +15,22 @@ func main() {
 		}
 
 		input, err := bufio.NewReader(os.Stdin).ReadString('\n')
-		// Wait for user input
 		if err != nil {
 			panic(err)
 		}
 
-		input = strings.TrimSpace(input)
+		// input = strings.TrimSpace(input)
 
-		fmt.Printf("%s: command not found\n", input)
+		// fmt.Printf("%s: command not found\n", input)
+
+		status := commands.ExecCommand(input)
+
+		if status.Failed() {
+			fmt.Println(status.Error())
+		}
+
+		if exit, code := status.Exit(); exit {
+			os.Exit(code)
+		}
 	}
 }
