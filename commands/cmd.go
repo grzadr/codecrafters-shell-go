@@ -20,7 +20,7 @@ func newGenericStatusError(err error) CommandStatus {
 	return CommandStatus{
 		code:      1,
 		err:       err,
-		terminate: true,
+		terminate: false,
 	}
 }
 

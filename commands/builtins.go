@@ -112,7 +112,26 @@ func (c CmdPwd) Exec(args string) (value CommandStatus) {
 	return
 }
 
+type CmdCd struct{}
+
+func (c CmdCd) Name() string {
+	return "cd"
+}
+
+func (c CmdCd) Exec(args string) (value CommandStatus) {
+	if os.Chdir(args) != nil {
+		value = newGenericStatusError(c.noDirError(args))
+	}
+
+	return
+}
+
+func (c CmdCd) noDirError(dirname string) error {
+	return fmt.Errorf("%s: %s: No such file or directory", c.Name(), dirname)
+}
+
 var commands = [...]Command{
+	CmdCd{},
 	CmdEcho{},
 	CmdExit{},
 	CmdPwd{},
