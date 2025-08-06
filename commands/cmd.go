@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 )
@@ -29,6 +28,14 @@ func newUnknownCommandError(name string) CommandStatus {
 	}
 }
 
+func newNotFoundError(name string) CommandStatus {
+	return CommandStatus{
+		code:      1,
+		err:       fmt.Errorf("%s: not found", name),
+		terminate: false,
+	}
+}
+
 func (s CommandStatus) Failed() bool {
 	return s.err != nil
 }
@@ -39,47 +46,6 @@ func (s CommandStatus) Error() string {
 
 func (s CommandStatus) Exit() (bool, int) {
 	return s.terminate, s.code
-}
-
-type Command interface {
-	Name() string
-	Exec(args string) (value CommandStatus)
-}
-
-type CmdExit struct{}
-
-func (c CmdExit) Name() string {
-	return "exit"
-}
-
-var cmdExitErr = newGenericStatusError(
-	fmt.Errorf("exit requires one integer parameter"),
-)
-
-func (c CmdExit) Exec(args string) (value CommandStatus) {
-	value.terminate = true
-	if value.code, value.err = strconv.Atoi(args); value.err != nil {
-		return cmdExitErr
-	}
-
-	return
-}
-
-type CmdEcho struct{}
-
-func (c CmdEcho) Name() string {
-	return "echo"
-}
-
-func (c CmdEcho) Exec(args string) (value CommandStatus) {
-	fmt.Println(args)
-
-	return
-}
-
-var commands = [...]Command{
-	CmdExit{},
-	CmdEcho{},
 }
 
 const commandIndexDefaultCapacity = 16
@@ -104,6 +70,12 @@ func NewCommandIndex() (index *CommandIndex) {
 
 func (i *CommandIndex) Get(name string) (cmd Command, found bool) {
 	cmd, found = i.index[name]
+
+	return
+}
+
+func (i *CommandIndex) Find(name string) (found bool) {
+	_, found = i.index[name]
 
 	return
 }
