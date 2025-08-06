@@ -6,13 +6,13 @@ import (
 	"os"
 )
 
-// Ensures gofmt doesn't remove the "fmt" import in stage 1 (feel free to remove this!)
-var _ = fmt.Fprint
-
 func main() {
-	// Uncomment this block to pass the first stage
-	// fmt.Fprint(os.Stdout, "$ ")
+	if _, err := fmt.Fprint(os.Stdout, "$ "); err != nil {
+		panic(err)
+	}
 
 	// Wait for user input
-	bufio.NewReader(os.Stdin).ReadString('\n')
+	if _, err := bufio.NewReader(os.Stdin).ReadString('\n'); err != nil {
+		panic(err)
+	}
 }
