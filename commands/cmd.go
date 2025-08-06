@@ -2,8 +2,7 @@ package commands
 
 import (
 	"fmt"
-	"os"
-	"path"
+	"os/exec"
 	"strings"
 	"sync"
 )
@@ -57,21 +56,24 @@ func (s CommandStatus) initBuffer() {
 	s.Stdout = make([]byte, 0, defaultCommandStatusBufferSize)
 }
 
-func findCmdInPath(name string) (cmdPath string, found bool) {
-	for dir := range strings.SplitSeq(os.Getenv("PATH"), ":") {
-		entries, err := os.ReadDir(dir)
-		if err != nil {
-			continue
-		}
+func findCmdInPath(name string) (cmd CmdGeneric, found bool) {
+	// for dir := range strings.SplitSeq(os.Getenv("PATH"), ":") {
+	// 	entries, err := os.ReadDir(dir)
+	// 	if err != nil {
+	// 		continue
+	// 	}
+	// 	for _, entry := range entries {
+	// 		info, err := entry.Info()
+	// 		if err != nil || info.Mode()&0o111 == 0 || info.Name() != name {
+	// 			continue
+	// 		}
+	// 		return path.Join(dir, info.Name()), true
+	// 	}
+	// }
+	cmdPath, err := exec.LookPath(name)
 
-		for _, entry := range entries {
-			info, err := entry.Info()
-			if err != nil || info.Mode()&0o111 == 0 || info.Name() != name {
-				continue
-			}
-
-			return path.Join(dir, info.Name()), true
-		}
+	if found = err == nil; found {
+		cmd = newCmdGeneric(name, cmdPath)
 	}
 
 	return
@@ -134,8 +136,8 @@ func ExecCommand(cmdStr string) CommandStatus {
 
 	if found {
 		return cmd.Exec(args)
-	} else if cmdPath, found := findCmdInPath(name); found {
-		return newCmdGeneric(name, cmdPath).Exec(args)
+	} else if cmd, found = findCmdInPath(name); found {
+		return cmd.Exec(args)
 	}
 
 	return newUnknownCommandError(name)

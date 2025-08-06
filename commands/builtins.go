@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -86,8 +87,8 @@ func (c CmdType) Exec(args string) (value CommandStatus) {
 			"%s is a shell builtin\n",
 			args,
 		)
-	} else if path, found := findCmdInPath(args); found {
-		value.Stdout = fmt.Appendf(value.Stdout, "%s is %s\n", args, path)
+	} else if cmd, found := findCmdInPath(args); found {
+		value.Stdout = fmt.Appendf(value.Stdout, "%s is %s\n", args, cmd.path)
 	} else {
 		value = newNotFoundError(args)
 	}
@@ -95,8 +96,25 @@ func (c CmdType) Exec(args string) (value CommandStatus) {
 	return
 }
 
+type CmdPwd struct{}
+
+func (c CmdPwd) Name() string {
+	return "pwd"
+}
+
+func (c CmdPwd) Exec(args string) (value CommandStatus) {
+	if pwd, err := os.Getwd(); err != nil {
+		value = newGenericStatusError(err)
+	} else {
+		value.Stdout = []byte(pwd + "\n")
+	}
+
+	return
+}
+
 var commands = [...]Command{
-	CmdExit{},
 	CmdEcho{},
+	CmdExit{},
+	CmdPwd{},
 	CmdType{},
 }
