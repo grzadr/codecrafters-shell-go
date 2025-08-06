@@ -119,6 +119,10 @@ func (c CmdCd) Name() string {
 }
 
 func (c CmdCd) Exec(args string) (value CommandStatus) {
+	if args == "~" {
+		args, _ = os.UserHomeDir()
+	}
+
 	if os.Chdir(args) != nil {
 		value = newGenericStatusError(c.noDirError(args))
 	}
