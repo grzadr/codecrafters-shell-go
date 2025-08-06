@@ -43,7 +43,7 @@ func (s CommandStatus) Exit() (bool, int) {
 
 type Command interface {
 	Name() string
-	Exec(args ...string) (value CommandStatus)
+	Exec(args string) (value CommandStatus)
 }
 
 type CmdExit struct{}
@@ -56,22 +56,30 @@ var cmdExitErr = newGenericStatusError(
 	fmt.Errorf("exit requires one integer parameter"),
 )
 
-func (c CmdExit) Exec(args ...string) (value CommandStatus) {
-	// log.Println(args)
-	if len(args) != 1 {
-		return cmdExitErr
-	}
-
+func (c CmdExit) Exec(args string) (value CommandStatus) {
 	value.terminate = true
-	if value.code, value.err = strconv.Atoi(args[0]); value.err != nil {
+	if value.code, value.err = strconv.Atoi(args); value.err != nil {
 		return cmdExitErr
 	}
 
 	return
 }
 
+type CmdEcho struct{}
+
+func (c CmdEcho) Name() string {
+	return "echo"
+}
+
+func (c CmdEcho) Exec(args string) (value CommandStatus) {
+	fmt.Println(args)
+
+	return
+}
+
 var commands = [...]Command{
 	CmdExit{},
+	CmdEcho{},
 }
 
 const commandIndexDefaultCapacity = 16
@@ -113,10 +121,8 @@ func GetCommandIndex() *CommandIndex {
 	return commandIndex
 }
 
-func parseCommandString(cmdStr string) (name string, args []string) {
-	items := strings.Split(strings.TrimSpace(cmdStr), " ")
-	name = items[0]
-	args = items[1:]
+func parseCommandString(cmdStr string) (name, args string) {
+	name, args, _ = strings.Cut(strings.TrimSpace(cmdStr), " ")
 
 	return
 }
@@ -129,5 +135,5 @@ func ExecCommand(cmdStr string) CommandStatus {
 		return newUnknownCommandError(name)
 	}
 
-	return cmd.Exec(args...)
+	return cmd.Exec(args)
 }
