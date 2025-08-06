@@ -25,6 +25,10 @@ func main() {
 
 		status := commands.ExecCommand(input)
 
+		if status.Stdout != nil {
+			fmt.Print(string(status.Stdout))
+		}
+
 		if status.Failed() {
 			fmt.Println(status.Error())
 		}

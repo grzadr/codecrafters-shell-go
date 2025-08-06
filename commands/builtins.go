@@ -2,8 +2,7 @@ package commands
 
 import (
 	"fmt"
-	"os"
-	"path"
+	"os/exec"
 	"strconv"
 	"strings"
 )
@@ -11,6 +10,34 @@ import (
 type Command interface {
 	Name() string
 	Exec(args string) (value CommandStatus)
+}
+
+type CmdGeneric struct {
+	name string
+	path string
+}
+
+func newCmdGeneric(cmdName, cmdPath string) CmdGeneric {
+	return CmdGeneric{
+		name: cmdName,
+		path: cmdPath,
+	}
+}
+
+func (c CmdGeneric) Name() string {
+	return c.name
+}
+
+func (c CmdGeneric) Exec(args string) (value CommandStatus) {
+	cmd := exec.Command(c.name, strings.Split(args, " ")...)
+	cmd.Path = c.path
+
+	value.Stdout, value.err = cmd.Output()
+	if value.err != nil {
+		value.code = 1
+	}
+
+	return
 }
 
 type CmdExit struct{}
@@ -39,7 +66,7 @@ func (c CmdEcho) Name() string {
 }
 
 func (c CmdEcho) Exec(args string) (value CommandStatus) {
-	fmt.Println(args)
+	value.Stdout = []byte(args + "\n")
 
 	return
 }
@@ -50,31 +77,17 @@ func (c CmdType) Name() string {
 	return "type"
 }
 
-func findCmdInPath(name string) (cmdPath string, found bool) {
-	for dir := range strings.SplitSeq(os.Getenv("PATH"), ":") {
-		entries, err := os.ReadDir(dir)
-		if err != nil {
-			continue
-		}
-
-		for _, entry := range entries {
-			info, err := entry.Info()
-			if err != nil || info.Mode()&0o111 == 0 || info.Name() != name {
-				continue
-			}
-
-			return path.Join(dir, info.Name()), true
-		}
-	}
-
-	return
-}
-
 func (c CmdType) Exec(args string) (value CommandStatus) {
+	value.initBuffer()
+
 	if GetCommandIndex().Find(args) {
-		fmt.Printf("%s is a shell builtin\n", args)
+		value.Stdout = fmt.Appendf(
+			value.Stdout,
+			"%s is a shell builtin\n",
+			args,
+		)
 	} else if path, found := findCmdInPath(args); found {
-		fmt.Printf("%s is %s\n", args, path)
+		value.Stdout = fmt.Appendf(value.Stdout, "%s is %s\n", args, path)
 	} else {
 		value = newNotFoundError(args)
 	}

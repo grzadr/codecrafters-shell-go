@@ -2,14 +2,19 @@ package commands
 
 import (
 	"fmt"
+	"os"
+	"path"
 	"strings"
 	"sync"
 )
+
+const defaultCommandStatusBufferSize = 1024
 
 type CommandStatus struct {
 	code      int
 	err       error
 	terminate bool
+	Stdout    []byte
 }
 
 func newGenericStatusError(err error) CommandStatus {
@@ -46,6 +51,30 @@ func (s CommandStatus) Error() string {
 
 func (s CommandStatus) Exit() (bool, int) {
 	return s.terminate, s.code
+}
+
+func (s CommandStatus) initBuffer() {
+	s.Stdout = make([]byte, 0, defaultCommandStatusBufferSize)
+}
+
+func findCmdInPath(name string) (cmdPath string, found bool) {
+	for dir := range strings.SplitSeq(os.Getenv("PATH"), ":") {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+
+		for _, entry := range entries {
+			info, err := entry.Info()
+			if err != nil || info.Mode()&0o111 == 0 || info.Name() != name {
+				continue
+			}
+
+			return path.Join(dir, info.Name()), true
+		}
+	}
+
+	return
 }
 
 const commandIndexDefaultCapacity = 16
@@ -103,9 +132,11 @@ func ExecCommand(cmdStr string) CommandStatus {
 	name, args := parseCommandString(cmdStr)
 	cmd, found := GetCommandIndex().Get(name)
 
-	if !found {
-		return newUnknownCommandError(name)
+	if found {
+		return cmd.Exec(args)
+	} else if cmdPath, found := findCmdInPath(name); found {
+		return newCmdGeneric(name, cmdPath).Exec(args)
 	}
 
-	return cmd.Exec(args)
+	return newUnknownCommandError(name)
 }
