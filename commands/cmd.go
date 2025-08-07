@@ -126,9 +126,17 @@ func GetCommandIndex() *CommandIndex {
 	return commandIndex
 }
 
-type argParser struct {
+type argRuneIterator struct {
+	source []rune
 	buffer []rune
 	offset int
+}
+
+func newArgParser(args []rune) *argRuneIterator {
+	return &argRuneIterator{
+		source: args,
+		buffer: make([]rune, len(args)),
+	}
 }
 
 
@@ -137,12 +145,18 @@ func parseCommandArgs(cmdStr string) (name string, args []string) {
 	// name, args, _ = strings.Cut(strings.TrimSpace(cmdStr), " ")
 	// reader := bufio.NewReader()
 	// reader.ReadString()
-	buffer := make([]rune, len(cmdStr))
-	offset := 0
-	lastEnd := 0
-	spaceCount := 0
-	initial := rune(0)
+	// buffer := make([]rune, len(cmdStr))
+	// offset := 0
+	// lastEnd := 0
+	// spaceCount := 0
+	// initial := rune(0)
 	args = make([]string, 0, defaultArgsBuffer)
+
+
+
+	for {
+
+	}
 
 	for _, character := range cmdStr {
 		switch character {
