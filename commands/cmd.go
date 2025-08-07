@@ -132,6 +132,7 @@ func parseCommandArgs(cmdStr string) (name string, args []string) {
 	// reader.ReadString()
 	buffer := make([]rune, len(cmdStr))
 	offset := 0
+	lastEnd := 0
 	initial := rune(0)
 	args = make([]string, 0, defaultArgsBuffer)
 
@@ -141,6 +142,8 @@ func parseCommandArgs(cmdStr string) (name string, args []string) {
 			if offset == 0 || initial != '\'' {
 				continue
 			}
+
+			if
 
 			if
 
