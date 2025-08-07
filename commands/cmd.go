@@ -3,11 +3,13 @@ package commands
 import (
 	"fmt"
 	"os/exec"
-	"strings"
 	"sync"
 )
 
-const defaultCommandStatusBufferSize = 1024
+const (
+	defaultCommandStatusBufferSize = 1024
+	defaultArgsBuffer              = 8
+)
 
 type CommandStatus struct {
 	code      int
@@ -124,21 +126,41 @@ func GetCommandIndex() *CommandIndex {
 	return commandIndex
 }
 
-func parseCommandString(cmdStr string) (name, args string) {
-	name, args, _ = strings.Cut(strings.TrimSpace(cmdStr), " ")
+func parseCommandArgs(cmdStr string) (name string, args []string) {
+	// name, args, _ = strings.Cut(strings.TrimSpace(cmdStr), " ")
+	// reader := bufio.NewReader()
+	// reader.ReadString()
+	buffer := make([]rune, len(cmdStr))
+	offset := 0
+	initial := rune(0)
+	args = make([]string, 0, defaultArgsBuffer)
+
+	for _, character := range cmdStr {
+		switch character {
+		case '\'':
+			if offset == 0 || initial != '\'' {
+				continue
+			}
+
+			if
+
+		default:
+			buffer[offset] = character
+		}
+	}
 
 	return
 }
 
-func ExecCommand(cmdStr string) CommandStatus {
-	name, args := parseCommandString(cmdStr)
-	cmd, found := GetCommandIndex().Get(name)
+func ExecCommand(args string) CommandStatus {
+	cmdName, cmdArgs := parseCommandArgs(args)
+	cmd, found := GetCommandIndex().Get(cmdName)
 
 	if found {
-		return cmd.Exec(args)
-	} else if cmd, found = findCmdInPath(name); found {
-		return cmd.Exec(args)
+		return cmd.Exec(cmdArgs)
+	} else if cmd, found = findCmdInPath(cmdName); found {
+		return cmd.Exec(cmdArgs)
 	}
 
-	return newUnknownCommandError(name)
+	return newUnknownCommandError(cmdName)
 }
