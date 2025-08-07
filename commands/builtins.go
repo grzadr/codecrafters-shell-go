@@ -10,7 +10,7 @@ import (
 
 type Command interface {
 	Name() string
-	Exec(args string) (value CommandStatus)
+	Exec(args []string) (value CommandStatus)
 }
 
 type CmdGeneric struct {
@@ -29,8 +29,8 @@ func (c CmdGeneric) Name() string {
 	return c.name
 }
 
-func (c CmdGeneric) Exec(args string) (value CommandStatus) {
-	cmd := exec.Command(c.name, strings.Split(args, " ")...)
+func (c CmdGeneric) Exec(args []string) (value CommandStatus) {
+	cmd := exec.Command(c.name, args...)
 	cmd.Path = c.path
 
 	value.Stdout, value.err = cmd.Output()
@@ -51,9 +51,9 @@ var cmdExitErr = newGenericStatusError(
 	fmt.Errorf("exit requires one integer parameter"),
 )
 
-func (c CmdExit) Exec(args string) (value CommandStatus) {
+func (c CmdExit) Exec(args []string) (value CommandStatus) {
 	value.terminate = true
-	if value.code, value.err = strconv.Atoi(args); value.err != nil {
+	if value.code, value.err = strconv.Atoi(args[0]); value.err != nil {
 		return cmdExitErr
 	}
 
@@ -66,8 +66,8 @@ func (c CmdEcho) Name() string {
 	return "echo"
 }
 
-func (c CmdEcho) Exec(args string) (value CommandStatus) {
-	value.Stdout = []byte(args + "\n")
+func (c CmdEcho) Exec(args []string) (value CommandStatus) {
+	value.Stdout = []byte(strings.Join(args, " "))
 
 	return
 }
@@ -78,19 +78,21 @@ func (c CmdType) Name() string {
 	return "type"
 }
 
-func (c CmdType) Exec(args string) (value CommandStatus) {
+func (c CmdType) Exec(args []string) (value CommandStatus) {
 	value.initBuffer()
 
-	if GetCommandIndex().Find(args) {
+	cmdStr := args[0]
+
+	if GetCommandIndex().Find(cmdStr) {
 		value.Stdout = fmt.Appendf(
 			value.Stdout,
 			"%s is a shell builtin\n",
 			args,
 		)
-	} else if cmd, found := findCmdInPath(args); found {
+	} else if cmd, found := findCmdInPath(cmdStr); found {
 		value.Stdout = fmt.Appendf(value.Stdout, "%s is %s\n", args, cmd.path)
 	} else {
-		value = newNotFoundError(args)
+		value = newNotFoundError(cmdStr)
 	}
 
 	return
@@ -102,7 +104,7 @@ func (c CmdPwd) Name() string {
 	return "pwd"
 }
 
-func (c CmdPwd) Exec(args string) (value CommandStatus) {
+func (c CmdPwd) Exec(args []string) (value CommandStatus) {
 	if pwd, err := os.Getwd(); err != nil {
 		value = newGenericStatusError(err)
 	} else {
@@ -118,13 +120,14 @@ func (c CmdCd) Name() string {
 	return "cd"
 }
 
-func (c CmdCd) Exec(args string) (value CommandStatus) {
-	if args == "~" {
-		args, _ = os.UserHomeDir()
+func (c CmdCd) Exec(args []string) (value CommandStatus) {
+	dir := args[0]
+	if dir == "~" {
+		dir, _ = os.UserHomeDir()
 	}
 
-	if os.Chdir(args) != nil {
-		value = newGenericStatusError(c.noDirError(args))
+	if os.Chdir(dir) != nil {
+		value = newGenericStatusError(c.noDirError(dir))
 	}
 
 	return
