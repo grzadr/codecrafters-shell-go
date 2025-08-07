@@ -126,6 +126,13 @@ func GetCommandIndex() *CommandIndex {
 	return commandIndex
 }
 
+type argParser struct {
+	buffer []rune
+	offset int
+}
+
+
+
 func parseCommandArgs(cmdStr string) (name string, args []string) {
 	// name, args, _ = strings.Cut(strings.TrimSpace(cmdStr), " ")
 	// reader := bufio.NewReader()
@@ -133,6 +140,7 @@ func parseCommandArgs(cmdStr string) (name string, args []string) {
 	buffer := make([]rune, len(cmdStr))
 	offset := 0
 	lastEnd := 0
+	spaceCount := 0
 	initial := rune(0)
 	args = make([]string, 0, defaultArgsBuffer)
 
