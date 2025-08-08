@@ -184,12 +184,16 @@ func (parser *argRuneIterator) done() bool {
 	return parser.left() == 0
 }
 
-// func (parser *argRuneIterator) rest() runeBuffer {
-// 	return parser.source[parser.offset:]
-// }
+func (parser *argRuneIterator) rest() string {
+	return string(parser.source[parser.offset:])
+}
 
 func (parser *argRuneIterator) peek() rune {
 	return parser.source[parser.offset]
+}
+
+func (parser *argRuneIterator) prev() rune {
+	return parser.source[parser.offset-1]
 }
 
 func (parser *argRuneIterator) skip() bool {
@@ -231,6 +235,28 @@ func (parser *argRuneIterator) skipRune(item rune) {
 	}
 }
 
+func (parser *argRuneIterator) skipTwinQuotes() bool {
+	// log.Printf(
+	// 	"skipTwinQUotes: %q %q %q %q",
+	// 	parser.terminator,
+	// 	parser.prev(),
+	// 	parser.peek(),
+	// 	parser.rest(),
+	// )
+	if parser.isSpaceTerminated() || parser.done() {
+		return false
+	}
+
+	if parser.prev() == parser.terminator &&
+		parser.peek() == parser.terminator {
+		parser.skip()
+
+		return true
+	}
+
+	return false
+}
+
 func (parser *argRuneIterator) setup() {
 	parser.skipRune(' ')
 	parser.buffer.clear()
@@ -240,6 +266,7 @@ func (parser *argRuneIterator) setup() {
 		parser.terminator = r
 		parser.skip()
 	}
+	// log.Printf("setup: %q %q\n", parser.terminator, parser.rest())
 }
 
 func (parser *argRuneIterator) nextArg() (arg string, ok bool) {
@@ -255,13 +282,12 @@ func (parser *argRuneIterator) nextArg() (arg string, ok bool) {
 			break
 		}
 
-		if r == '\'' && !parser.done() && parser.peek() == '\'' {
-			parser.skip()
-
-			continue
-		}
-
 		if r == parser.terminator {
+			if parser.skipTwinQuotes() {
+				// log.Println("skip twin quotes")
+				continue
+			}
+
 			break
 		}
 
