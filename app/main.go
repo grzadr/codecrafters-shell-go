@@ -19,9 +19,9 @@ func main() {
 			panic(err)
 		}
 
-		// input = strings.TrimSpace(input)
-
-		// fmt.Printf("%s: command not found\n", input)
+		if input == "\n" {
+			continue
+		}
 
 		status := commands.ExecCommand(input)
 
