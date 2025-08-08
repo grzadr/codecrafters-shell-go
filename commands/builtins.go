@@ -67,7 +67,7 @@ func (c CmdEcho) Name() string {
 }
 
 func (c CmdEcho) Exec(args []string) (value CommandStatus) {
-	value.Stdout = []byte(strings.Join(args, " "))
+	value.Stdout = []byte(strings.Join(args, " ") + "\n")
 
 	return
 }
@@ -87,10 +87,10 @@ func (c CmdType) Exec(args []string) (value CommandStatus) {
 		value.Stdout = fmt.Appendf(
 			value.Stdout,
 			"%s is a shell builtin\n",
-			args,
+			cmdStr,
 		)
 	} else if cmd, found := findCmdInPath(cmdStr); found {
-		value.Stdout = fmt.Appendf(value.Stdout, "%s is %s\n", args, cmd.path)
+		value.Stdout = fmt.Appendf(value.Stdout, "%s is %s\n", cmdStr, cmd.path)
 	} else {
 		value = newNotFoundError(cmdStr)
 	}

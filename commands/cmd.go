@@ -3,8 +3,8 @@ package commands
 import (
 	"fmt"
 	"iter"
-	"log"
 	"os/exec"
+	"strings"
 	"sync"
 )
 
@@ -128,24 +128,46 @@ func GetCommandIndex() *CommandIndex {
 	return commandIndex
 }
 
-type runeBuffer []rune
+type runeBuffer struct {
+	buff   []rune
+	offset int
+}
 
-func (b runeBuffer) first() rune {
-	// if len(b) > 0 {
-	// 	r = b[0]
-	// }
-	return b[0]
+func newRuneBuffer(size int) runeBuffer {
+	return runeBuffer{
+		buff: make([]rune, size),
+	}
+}
+
+func (b *runeBuffer) append(r rune) {
+	b.buff[b.offset] = r
+	b.offset++
+}
+
+func (b *runeBuffer) empty() bool {
+	return b.offset == 0
+}
+
+func (b *runeBuffer) content() string {
+	return string(b.buff[:b.offset])
+}
+
+func (b *runeBuffer) clear() {
+	clear(b.buff)
+	b.offset = 0
 }
 
 type argRuneIterator struct {
-	source     runeBuffer
+	source     []rune
 	offset     int
+	buffer     runeBuffer
 	terminator rune
 }
 
-func newArgParser(args runeBuffer) *argRuneIterator {
+func newArgParser(args string) *argRuneIterator {
 	return &argRuneIterator{
-		source:     args,
+		source:     []rune(args),
+		buffer:     newRuneBuffer(len(args)),
 		terminator: ' ',
 	}
 }
@@ -162,26 +184,22 @@ func (parser *argRuneIterator) done() bool {
 	return parser.left() == 0
 }
 
-func (parser *argRuneIterator) rest() runeBuffer {
-	return parser.source[parser.offset:]
-}
+// func (parser *argRuneIterator) rest() runeBuffer {
+// 	return parser.source[parser.offset:]
+// }
 
-func (parser *argRuneIterator) peekRune() rune {
+func (parser *argRuneIterator) peek() rune {
 	return parser.source[parser.offset]
 }
 
-func (parser *argRuneIterator) peekNext() (next rune, ok bool) {
-	if parser.left() > 0 {
-		return
+func (parser *argRuneIterator) skip() bool {
+	if parser.done() {
+		return false
 	}
 
-	next = parser.source[parser.offset+1]
-
-	return
-}
-
-func (parser *argRuneIterator) skip() {
 	parser.offset++
+
+	return true
 }
 
 func (parser *argRuneIterator) readRune() (r rune, ok bool) {
@@ -189,7 +207,7 @@ func (parser *argRuneIterator) readRune() (r rune, ok bool) {
 		return
 	}
 
-	r = parser.peekRune()
+	r = parser.peek()
 	parser.skip()
 
 	ok = true
@@ -197,74 +215,60 @@ func (parser *argRuneIterator) readRune() (r rune, ok bool) {
 	return
 }
 
-func (parser *argRuneIterator) hasSpaceterminator() bool {
+func (parser *argRuneIterator) isSpaceTerminated() bool {
 	return parser.terminator == ' '
 }
 
-func (parser *argRuneIterator) setTerminator() {
-	switch r := parser.peekRune(); r {
+func (parser *argRuneIterator) skipRune(item rune) {
+	for {
+		if !parser.done() && parser.peek() == item {
+			parser.skip()
+
+			continue
+		}
+
+		break
+	}
+}
+
+func (parser *argRuneIterator) setup() {
+	parser.skipRune(' ')
+	parser.buffer.clear()
+
+	switch r := parser.peek(); r {
 	case rune('"'), rune('\''):
 		parser.terminator = r
 		parser.skip()
 	}
 }
 
-func (parser *argRuneIterator) firstOther(other rune) {
-	for {
-		if r, ok := parser.readRune(); !ok || r != other {
-			return
-		}
-	}
-}
-
-func (parser *argRuneIterator) terminate() (r rune, done bool) {
-	r, ok := parser.readRune()
-	if !ok || r != parser.terminator {
-		log.Println("terminate()", string(r), done)
-
+func (parser *argRuneIterator) nextArg() (arg string, ok bool) {
+	if parser.done() {
 		return
 	}
 
-	done = true
-
-	if parser.hasSpaceterminator() {
-		parser.firstOther(' ')
-	} else if next, hasNext := parser.peekNext(); hasNext && next == parser.terminator {
-		parser.skip()
-	}
-
-	return
-}
-
-func (parser *argRuneIterator) nextArg() (string, bool) {
-	buffer := make(runeBuffer, len(parser.source))
-	buffOffset := 0
-
-	parser.setTerminator()
+	parser.setup()
 
 	for {
-		r, done := parser.terminate()
-
-		if done {
-			log.Println(
-				"terminating",
-				buffOffset,
-				parser.offset,
-				string(parser.rest()),
-			)
-
+		r, ok := parser.readRune()
+		if !ok {
 			break
 		}
 
-		buffer[buffOffset] = r
-		buffOffset += 1
+		if r == '\'' && !parser.done() && parser.peek() == '\'' {
+			parser.skip()
+
+			continue
+		}
+
+		if r == parser.terminator {
+			break
+		}
+
+		parser.buffer.append(r)
 	}
 
-	if buffOffset > 0 {
-		return string(buffer[:buffOffset]), true
-	}
-
-	return "", false
+	return parser.buffer.content(), !parser.buffer.empty()
 }
 
 func (parser *argRuneIterator) parseArgs() iter.Seq[string] {
@@ -273,28 +277,16 @@ func (parser *argRuneIterator) parseArgs() iter.Seq[string] {
 			arg, ok := parser.nextArg()
 
 			if !ok || !yield(arg) {
-				log.Println("done")
-
 				return
 			}
-
-			log.Println(arg)
 		}
 	}
 }
 
-func parseCommandArgs(cmdStr string) (name string, args []string) {
-	// name, args, _ = strings.Cut(strings.TrimSpace(cmdStr), " ")
-	// reader := bufio.NewReader()
-	// reader.ReadString()
-	// buffer := make([]rune, len(cmdStr))
-	// offset := 0
-	// lastEnd := 0
-	// spaceCount := 0
-	// initial := rune(0)
+func parseCommandArgs(argsStr string) (name string, args []string) {
 	args = make([]string, 0, defaultArgsBuffer)
 
-	for arg := range newArgParser(runeBuffer(cmdStr)).parseArgs() {
+	for arg := range newArgParser(argsStr).parseArgs() {
 		args = append(args, arg)
 	}
 
@@ -304,8 +296,8 @@ func parseCommandArgs(cmdStr string) (name string, args []string) {
 	return
 }
 
-func ExecCommand(args string) CommandStatus {
-	cmdName, cmdArgs := parseCommandArgs(args)
+func ExecCommand(argsStr string) CommandStatus {
+	cmdName, cmdArgs := parseCommandArgs(strings.TrimSpace(argsStr))
 	cmd, found := GetCommandIndex().Get(cmdName)
 
 	if found {
