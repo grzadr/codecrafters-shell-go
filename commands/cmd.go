@@ -2,21 +2,23 @@ package commands
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
 )
 
 const (
-	defaultCommandStatusBufferSize = 1024
 	defaultArgsBuffer              = 8
+	defaultCommandIndexCapacity    = 16
+	defaultCommandStatusBufferSize = 1024
+	defaultFileMode                = 0o644
 )
 
 type CommandStatus struct {
 	code      int
 	err       error
 	terminate bool
-	Stdout    []byte
 }
 
 func newGenericStatusError(err error) CommandStatus {
@@ -55,9 +57,9 @@ func (s CommandStatus) Exit() (bool, int) {
 	return s.terminate, s.code
 }
 
-func (s CommandStatus) initBuffer() {
-	s.Stdout = make([]byte, 0, defaultCommandStatusBufferSize)
-}
+// func (s CommandStatus) initBuffer() {
+// 	s.Stdout = make([]byte, 0, defaultCommandStatusBufferSize)
+// }
 
 func findCmdInPath(name string) (cmd CmdGeneric, found bool) {
 	// for dir := range strings.SplitSeq(os.Getenv("PATH"), ":") {
@@ -82,7 +84,21 @@ func findCmdInPath(name string) (cmd CmdGeneric, found bool) {
 	return
 }
 
-const commandIndexDefaultCapacity = 16
+func CreateEmptyFile(path string) (*os.File, error) {
+	return os.OpenFile(
+		path,
+		os.O_WRONLY|os.O_CREATE|os.O_TRUNC,
+		defaultFileMode,
+	)
+}
+
+func CreateAppendFile(path string) (*os.File, error) {
+	return os.OpenFile(
+		path,
+		os.O_WRONLY|os.O_CREATE|os.O_APPEND,
+		defaultFileMode,
+	)
+}
 
 type CommandIndex struct {
 	index map[string]Command
@@ -92,7 +108,7 @@ func NewCommandIndex() (index *CommandIndex) {
 	index = &CommandIndex{
 		index: make(
 			map[string]Command,
-			min(len(commands), commandIndexDefaultCapacity),
+			min(len(commands), defaultCommandIndexCapacity),
 		),
 	}
 	for _, cmd := range commands {

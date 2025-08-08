@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -14,15 +15,24 @@ type Command interface {
 }
 
 type CmdGeneric struct {
-	name string
-	path string
+	name   string
+	path   string
+	Stdout io.Writer
+	Stderr io.Writer
+	Stdin  io.Reader
 }
 
-func newCmdGeneric(cmdName, cmdPath string) CmdGeneric {
-	return CmdGeneric{
+func newCmdGeneric(cmdName, cmdPath string) (cmd CmdGeneric) {
+	cmd = CmdGeneric{
 		name: cmdName,
 		path: cmdPath,
 	}
+	cmd.Stdin, cmd.Stdout = io.Pipe()
+	// cmd.Stderr = bufio.NewWriter(
+	// 	bytes.NewBuffer(make([]byte, 0, defaultCommandStatusBufferSize)),
+	// )
+
+	return
 }
 
 func (c CmdGeneric) Name() string {
@@ -32,8 +42,11 @@ func (c CmdGeneric) Name() string {
 func (c CmdGeneric) Exec(args []string) (value CommandStatus) {
 	cmd := exec.Command(c.name, args...)
 	cmd.Path = c.path
+	cmd.Stdin = c.Stdin
+	cmd.Stdout = c.Stdout
+	c.Stderr = cmd.StderrPipe()
 
-	value.Stdout, value.err = cmd.Output()
+	value.Stdout, value.err = cmd.StderrPipe()
 	if value.err != nil {
 		value.code = 1
 	}
