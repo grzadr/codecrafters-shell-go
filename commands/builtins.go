@@ -14,20 +14,40 @@ type Command interface {
 	Exec(args []string) (value CommandStatus)
 }
 
-type CmdGeneric struct {
-	name   string
-	path   string
-	Stdout io.Writer
-	Stderr io.Writer
-	Stdin  io.Reader
+type CmdBase struct {
+	outWriter io.Writer
+	errWriter io.Writer
+	inReader  io.Reader
 }
 
-func newCmdGeneric(cmdName, cmdPath string) (cmd CmdGeneric) {
-	cmd = CmdGeneric{
-		name: cmdName,
-		path: cmdPath,
+func NewCmdBase(stdin io.Reader) (cmd *CmdBase, stdout, stderr io.Reader) {
+	cmd = &CmdBase{
+		inReader: stdin,
 	}
-	cmd.Stdin, cmd.Stdout = io.Pipe()
+	stdout, cmd.outWriter = io.Pipe()
+	stderr, cmd.errWriter = io.Pipe()
+
+	return
+}
+
+type CmdGeneric struct {
+	name string
+	path string
+	CmdBase
+}
+
+func newCmdGeneric(
+	cmdName, cmdPath string, stdin io.Reader,
+) (cmd *CmdGeneric, stdout, stderr io.Reader) {
+	base, stdout, stderr := NewCmdBase(stdin)
+	cmd = &CmdGeneric{
+		name:    cmdName,
+		path:    cmdPath,
+		CmdBase: *base,
+	}
+
+	// stdout, cmd.outWriter = io.Pipe()
+	// stderr, cmd.errWriter = io.Pipe()
 	// cmd.Stderr = bufio.NewWriter(
 	// 	bytes.NewBuffer(make([]byte, 0, defaultCommandStatusBufferSize)),
 	// )
@@ -42,11 +62,12 @@ func (c CmdGeneric) Name() string {
 func (c CmdGeneric) Exec(args []string) (value CommandStatus) {
 	cmd := exec.Command(c.name, args...)
 	cmd.Path = c.path
-	cmd.Stdin = c.Stdin
-	cmd.Stdout = c.Stdout
-	c.Stderr = cmd.StderrPipe()
+	cmd.Stdin = c.inReader
+	cmd.Stdout = c.outWriter
+	cmd.Stderr = c.errWriter
+	cmd.Start()
+	value.err = cmd.Wait()
 
-	value.Stdout, value.err = cmd.StderrPipe()
 	if value.err != nil {
 		value.code = 1
 	}
