@@ -3,7 +3,6 @@ package commands
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"sync"
@@ -153,10 +152,9 @@ func ExecCommand(argsStr string) (status CommandStatus) {
 
 		if i == len(parsedArgs.cmds)-1 {
 			// log.Println(cmd.Name())
-			if cmd.name == "echo" {
-				log.Println(stdout, os.Stdout)
-			}
-
+			// if cmd.name == "echo" {
+			// 	log.Println(stdout, os.Stdout)
+			// }
 			go cmd.ExecGo(parsed.args, lastStatus)
 		} else {
 			go cmd.Exec(parsed.args)
@@ -164,12 +162,13 @@ func ExecCommand(argsStr string) (status CommandStatus) {
 	}
 
 	wg := sync.WaitGroup{}
-	wg.Add(2)
+	wg.Add(1)
 
 	go func() {
 		io.Copy(stdout, stdin)
 		wg.Done()
 	}()
+	wg.Add(1)
 
 	go func() {
 		status = <-lastStatus

@@ -75,6 +75,10 @@ func (parser *argIterator) prev() rune {
 	return parser.source[parser.offset-1]
 }
 
+func (parser *argIterator) next() rune {
+	return parser.source[parser.offset]
+}
+
 func (parser *argIterator) skip() bool {
 	if parser.done() {
 		return false
@@ -159,6 +163,8 @@ func (parser *argIterator) setup() {
 	case rune('"'), rune('\''):
 		parser.terminator = r
 		parser.skip()
+	default:
+		parser.terminator = ' '
 	}
 }
 
@@ -179,18 +185,19 @@ loop:
 		switch r {
 		case '\\':
 			r = parser.escapeBackslash()
-		// case '\'', '"':
-
 		case parser.terminator:
+			// log.Printf("content %q:", parser.buffer.content())
 			if parser.skipTwinQuotes() || parser.isConcatenated() {
-				continue
+				continue loop
 			}
-			// } else if parser.isSpaceTerminated() || parser.done() {
-			// 	break loop
-			// } else {
-			// 	continue
-			// }
+
 			break loop
+		case '\'', '"':
+			if !parser.done() && parser.peek() == r {
+				parser.skip()
+
+				continue loop
+			}
 		}
 
 		parser.buffer.append(r)
@@ -218,15 +225,11 @@ type parsedCmd struct {
 
 type parsedArgs struct {
 	cmds []parsedCmd
-	// stdout io.Writer
-	// stderr io.Writer
 }
 
 func newParsedArgs() *parsedArgs {
 	return &parsedArgs{
 		cmds: make([]parsedCmd, 0, defaultArgsBuffer),
-		// stdout: os.Stdout,
-		// stderr: os.Stderr,
 	}
 }
 
@@ -245,12 +248,7 @@ func (a *parsedArgs) getIO(
 
 	switch name {
 	case ">", "1>":
-		// log.Printf("%s %s\n", name, args[0])
 		stdout, _ = CreateEmptyFile(args[0])
-
-		if name == "1>" {
-			panic("1>")
-		}
 	case ">>", "1>>":
 		stdout, _ = CreateAppendFile(args[0])
 	case "2>":
@@ -258,13 +256,7 @@ func (a *parsedArgs) getIO(
 	case "2>>":
 		stderr, _ = CreateAppendFile(args[0])
 	default:
-		// log.Printf("appending %q %+v\n", name, args)
 		a.append(name, args)
-		// log.Println(len(a.cmds))
-	}
-
-	if name == "1>" {
-		panic("1>")
 	}
 
 	return stdout, stderr
@@ -282,10 +274,10 @@ func parseCommandArgs(
 	var cmdArgs []string
 
 	for arg := range newArgParser(strings.TrimSpace(args)).parseArgs() {
-		if arg == "1>" {
-			panic("1>")
-		}
-
+		// if strings.Contains(arg, "1>") {
+		// 	log.Println("arg:", arg)
+		// 	panic("1>")
+		// }
 		if arg == "|" {
 			cmdReady = false
 		} else if strings.HasSuffix(arg, ">") || !cmdReady {
