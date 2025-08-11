@@ -2,9 +2,10 @@ package commands
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"os/exec"
-	"strings"
 	"sync"
 )
 
@@ -16,42 +17,38 @@ const (
 )
 
 type CommandStatus struct {
-	code      int
-	err       error
+	code int
+	// err       error
 	terminate bool
 }
 
-func newGenericStatusError(err error) CommandStatus {
-	return CommandStatus{
-		code:      1,
-		err:       err,
-		terminate: false,
-	}
+func newErrorStatus() CommandStatus {
+	return CommandStatus{code: 1}
 }
 
-func newUnknownCommandError(name string) CommandStatus {
-	return CommandStatus{
-		code:      1,
-		err:       fmt.Errorf("%s: command not found", name),
-		terminate: false,
-	}
-}
+// func newUnknownCommandError(name string) CommandStatus {
+// 	return CommandStatus{
+// 		code:      1,
+// 		err:       fmt.Errorf("%s: command not found", name),
+// 		terminate: false,
+// 	}
+// }
 
-func newNotFoundError(name string) CommandStatus {
-	return CommandStatus{
-		code:      1,
-		err:       fmt.Errorf("%s: not found", name),
-		terminate: false,
-	}
-}
+// func newNotFoundError(name string) CommandStatus {
+// 	return CommandStatus{
+// 		code:      1,
+// 		err:       fmt.Errorf("%s: not found", name),
+// 		terminate: false,
+// 	}
+// }
 
 func (s CommandStatus) Failed() bool {
-	return s.err != nil
+	return s.code != 0
 }
 
-func (s CommandStatus) Error() string {
-	return s.err.Error()
-}
+// func (s CommandStatus) Error() string {
+// 	return s.err.Error()
+// }
 
 func (s CommandStatus) Exit() (bool, int) {
 	return s.terminate, s.code
@@ -61,7 +58,7 @@ func (s CommandStatus) Exit() (bool, int) {
 // 	s.Stdout = make([]byte, 0, defaultCommandStatusBufferSize)
 // }
 
-func findCmdInPath(name string) (cmd CmdGeneric, found bool) {
+func findCmdPath(name string) (cmdPath string, found bool) {
 	// for dir := range strings.SplitSeq(os.Getenv("PATH"), ":") {
 	// 	entries, err := os.ReadDir(dir)
 	// 	if err != nil {
@@ -76,10 +73,7 @@ func findCmdInPath(name string) (cmd CmdGeneric, found bool) {
 	// 	}
 	// }
 	cmdPath, err := exec.LookPath(name)
-
-	if found = err == nil; found {
-		cmd = newCmdGeneric(name, cmdPath)
-	}
+	found = err == nil
 
 	return
 }
@@ -100,58 +94,99 @@ func CreateAppendFile(path string) (*os.File, error) {
 	)
 }
 
-type CommandIndex struct {
-	index map[string]Command
-}
+// type CommandIndex struct {
+// 	index map[string]Command
+// }
 
-func NewCommandIndex() (index *CommandIndex) {
-	index = &CommandIndex{
-		index: make(
-			map[string]Command,
-			min(len(commands), defaultCommandIndexCapacity),
-		),
+// func NewCommandIndex() (index *CommandIndex) {
+// 	index = &CommandIndex{
+// 		index: make(
+// 			map[string]Command,
+// 			min(len(commands), defaultCommandIndexCapacity),
+// 		),
+// 	}
+
+// 	for _, cmd := range commands {
+// 		index.index[cmd.Name()] = cmd
+// 	}
+
+// 	return
+// }
+
+// var (
+// 	commandIndex     *CommandIndex
+// 	commandIndexOnce sync.Once
+// )
+
+// func GetCommandIndex() *CommandIndex {
+// 	commandIndexOnce.Do(func() {
+// 		commandIndex = NewCommandIndex()
+// 	})
+
+// 	return commandIndex
+// }
+
+func ExecCommand(argsStr string) (status CommandStatus) {
+	parsedArgs, stdout, stderr := parseCommandArgs(argsStr)
+	// var stdout io.Writer = os.Stdout
+	// var stderr io.Writer = os.Stderr
+	var stdin io.Reader
+
+	lastStatus := make(chan CommandStatus, 1)
+	// copyDone := make(chan struct{}, 1)
+	// defer close(lastStatus)
+	// defer close(copyDone)
+
+	for i, parsed := range parsedArgs.cmds {
+		// log.Println(parsed)
+		cmd, found := GetCommandsIndex().Get(parsed.name)
+
+		if !found {
+			fmt.Fprintf(stderr, "%s: command not found\n", parsed.name)
+
+			return newErrorStatus()
+		}
+
+		cmd.SetIO(stdin, stderr)
+		// log.Println(cmd)
+		stdin = cmd.GetStdout()
+
+		if i == len(parsedArgs.cmds)-1 {
+			// log.Println(cmd.Name())
+			if cmd.name == "echo" {
+				log.Println(stdout, os.Stdout)
+			}
+
+			go cmd.ExecGo(parsed.args, lastStatus)
+		} else {
+			go cmd.Exec(parsed.args)
+		}
 	}
-	for _, cmd := range commands {
-		index.index[cmd.Name()] = cmd
-	}
 
-	return
-}
+	wg := sync.WaitGroup{}
+	wg.Add(2)
 
-func (i *CommandIndex) Get(name string) (cmd Command, found bool) {
-	cmd, found = i.index[name]
+	go func() {
+		io.Copy(stdout, stdin)
+		wg.Done()
+	}()
 
-	return
-}
+	go func() {
+		status = <-lastStatus
 
-func (i *CommandIndex) Find(name string) (found bool) {
-	_, found = i.index[name]
+		wg.Done()
+	}()
 
-	return
-}
+	wg.Wait()
 
-var (
-	commandIndex     *CommandIndex
-	commandIndexOnce sync.Once
-)
+	// for range 2 {
+	// 	select {
+	// 	case <-copyDone:
+	// 	case status = <-lastStatus:
+	// 	}
+	// }
 
-func GetCommandIndex() *CommandIndex {
-	commandIndexOnce.Do(func() {
-		commandIndex = NewCommandIndex()
-	})
+	// status = <-lastStatus
 
-	return commandIndex
-}
-
-func ExecCommand(argsStr string) CommandStatus {
-	cmdName, cmdArgs := parseCommandArgs(strings.TrimSpace(argsStr))
-	cmd, found := GetCommandIndex().Get(cmdName)
-
-	if found {
-		return cmd.Exec(cmdArgs)
-	} else if cmd, found = findCmdInPath(cmdName); found {
-		return cmd.Exec(cmdArgs)
-	}
-
-	return newUnknownCommandError(cmdName)
+	return status
 }

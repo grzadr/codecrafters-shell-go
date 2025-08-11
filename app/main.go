@@ -25,13 +25,15 @@ func main() {
 
 		status := commands.ExecCommand(input)
 
+		// log.Println(status)
+
 		// if status.Stdout != nil {
 		// 	fmt.Print(string(status.Stdout))
 		// }
 
-		if status.Failed() {
-			fmt.Println(status.Error())
-		}
+		// if status.Failed() {
+		// 	fmt.Println(status.Error())
+		// }
 
 		if exit, code := status.Exit(); exit {
 			os.Exit(code)

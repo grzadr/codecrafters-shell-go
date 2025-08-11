@@ -1,6 +1,11 @@
 package commands
 
-import "iter"
+import (
+	"io"
+	"iter"
+	"os"
+	"strings"
+)
 
 type runeBuffer struct {
 	buff   []rune
@@ -206,15 +211,94 @@ func (parser *argIterator) parseArgs() iter.Seq[string] {
 	}
 }
 
-func parseCommandArgs(argsStr string) (name string, args []string) {
-	args = make([]string, 0, defaultArgsBuffer)
+type parsedCmd struct {
+	name string
+	args []string
+}
 
-	for arg := range newArgParser(argsStr).parseArgs() {
-		args = append(args, arg)
+type parsedArgs struct {
+	cmds []parsedCmd
+	// stdout io.Writer
+	// stderr io.Writer
+}
+
+func newParsedArgs() *parsedArgs {
+	return &parsedArgs{
+		cmds: make([]parsedCmd, 0, defaultArgsBuffer),
+		// stdout: os.Stdout,
+		// stderr: os.Stderr,
+	}
+}
+
+func (a *parsedArgs) append(name string, args []string) {
+	if len(name) > 0 {
+		a.cmds = append(a.cmds, parsedCmd{name: name, args: args})
+	}
+}
+
+func (a *parsedArgs) getIO(
+	name string,
+	args []string,
+) (stdout, stderr io.Writer) {
+	stdout = os.Stdout
+	stderr = os.Stderr
+
+	switch name {
+	case ">", "1>":
+		// log.Printf("%s %s\n", name, args[0])
+		stdout, _ = CreateEmptyFile(args[0])
+
+		if name == "1>" {
+			panic("1>")
+		}
+	case ">>", "1>>":
+		stdout, _ = CreateAppendFile(args[0])
+	case "2>":
+		stderr, _ = CreateEmptyFile(args[0])
+	case "2>>":
+		stderr, _ = CreateAppendFile(args[0])
+	default:
+		// log.Printf("appending %q %+v\n", name, args)
+		a.append(name, args)
+		// log.Println(len(a.cmds))
 	}
 
-	name = args[0]
-	args = args[1:]
+	if name == "1>" {
+		panic("1>")
+	}
 
-	return
+	return stdout, stderr
+}
+
+func parseCommandArgs(
+	args string,
+) (parsed *parsedArgs, stdout, stderr io.Writer) {
+	parsed = newParsedArgs()
+
+	var cmdReady bool
+
+	var cmdName string
+
+	var cmdArgs []string
+
+	for arg := range newArgParser(strings.TrimSpace(args)).parseArgs() {
+		if arg == "1>" {
+			panic("1>")
+		}
+
+		if arg == "|" {
+			cmdReady = false
+		} else if strings.HasSuffix(arg, ">") || !cmdReady {
+			parsed.append(cmdName, cmdArgs)
+			cmdName = arg
+			cmdReady = true
+			cmdArgs = make([]string, 0, defaultArgsBuffer)
+		} else {
+			cmdArgs = append(cmdArgs, arg)
+		}
+	}
+
+	stdout, stderr = parsed.getIO(cmdName, cmdArgs)
+
+	return parsed, stdout, stderr
 }

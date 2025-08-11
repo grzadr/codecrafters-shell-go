@@ -1,180 +1,272 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type Command interface {
 	Name() string
 	Exec(args []string) (value CommandStatus)
+	ExecGo(args []string, status chan<- CommandStatus)
+	SetIO(stdin io.Reader, stderr io.Writer)
+	GetStdout() io.Reader
 }
+
+type ExecFunc func(c *CmdBase, args []string) (value CommandStatus)
 
 type CmdBase struct {
+	name      string
+	path      string
 	outWriter io.Writer
-	errWriter io.Writer
-	inReader  io.Reader
+	stderr    io.Writer
+	stdin     io.Reader
+	stdout    io.Reader
+	cmd       ExecFunc
 }
 
-func NewCmdBase(stdin io.Reader) (cmd *CmdBase, stdout, stderr io.Reader) {
-	cmd = &CmdBase{
-		inReader: stdin,
-	}
-	stdout, cmd.outWriter = io.Pipe()
-	stderr, cmd.errWriter = io.Pipe()
+func NewCmdBase(name string, exec ExecFunc) (cmd *CmdBase) {
+	cmd = &CmdBase{name: name, cmd: exec}
+	// cmd.SetIO(stdin, stderr)
 
 	return
 }
 
-type CmdGeneric struct {
-	name string
-	path string
-	CmdBase
-}
-
-func newCmdGeneric(
-	cmdName, cmdPath string, stdin io.Reader,
-) (cmd *CmdGeneric, stdout, stderr io.Reader) {
-	base, stdout, stderr := NewCmdBase(stdin)
-	cmd = &CmdGeneric{
-		name:    cmdName,
-		path:    cmdPath,
-		CmdBase: *base,
-	}
-
-	// stdout, cmd.outWriter = io.Pipe()
-	// stderr, cmd.errWriter = io.Pipe()
-	// cmd.Stderr = bufio.NewWriter(
-	// 	bytes.NewBuffer(make([]byte, 0, defaultCommandStatusBufferSize)),
-	// )
-
-	return
-}
-
-func (c CmdGeneric) Name() string {
+func (c CmdBase) Name() string {
 	return c.name
 }
 
-func (c CmdGeneric) Exec(args []string) (value CommandStatus) {
+func (c *CmdBase) SetIO(stdin io.Reader, stderr io.Writer) {
+	c.stdin = stdin
+	c.stderr = stderr
+	c.stdout, c.outWriter = io.Pipe()
+}
+
+func (c *CmdBase) GetStdout() io.Reader {
+	return c.stdout
+}
+
+func (c *CmdBase) Exec(args []string) (value CommandStatus) {
+	value = c.cmd(c, args)
+
+	if closer, ok := c.outWriter.(io.Closer); ok {
+		closer.Close()
+	}
+
+	return
+}
+
+func (c CmdBase) ExecGo(args []string, status chan<- CommandStatus) {
+	status <- c.Exec(args)
+	// status <- (*c.Exec)(args)
+}
+
+// type CmdGeneric struct {
+// 	name string
+// 	path string
+// 	*CmdBase
+// }
+
+// func newCmdGeneric(cmdName, cmdPath string) (cmd CmdGeneric) {
+// 	cmd = CmdGeneric{
+// 		name: cmdName,
+// 		path: cmdPath,
+// 	}
+
+// 	// stdout, cmd.outWriter = io.Pipe()
+// 	// stderr, cmd.errWriter = io.Pipe()
+// 	// cmd.Stderr = bufio.NewWriter(
+// 	// 	bytes.NewBuffer(make([]byte, 0, defaultCommandStatusBufferSize)),
+// 	// )
+
+// 	return
+// }
+
+// func (c CmdGeneric) Name() string {
+// 	return c.name
+// }
+
+func ExecFromPath(c *CmdBase, args []string) (value CommandStatus) {
 	cmd := exec.Command(c.name, args...)
 	cmd.Path = c.path
-	cmd.Stdin = c.inReader
+	cmd.Stdin = c.stdin
 	cmd.Stdout = c.outWriter
-	cmd.Stderr = c.errWriter
-	cmd.Start()
-	value.err = cmd.Wait()
+	cmd.Stderr = c.stderr
 
-	if value.err != nil {
+	if err := cmd.Start(); err != nil {
+		panic(err)
+	}
+
+	var exitErr *exec.ExitError
+	if err := cmd.Wait(); errors.As(err, &exitErr) {
+		value.code = exitErr.ExitCode()
+	} else if err != nil {
+		panic(fmt.Errorf("command %s/%s exited with error: %w", c.path, c.name, err))
+	}
+
+	return
+}
+
+// type CmdExit struct {
+// 	*CmdBase
+// }
+
+// func (c CmdExit) Name() string {
+// 	return "exit"
+// }
+
+// var cmdExitErr = newGenericStatusError(
+// 	fmt.Errorf("exit requires one integer parameter"),
+// )
+
+func ExecExit(c *CmdBase, args []string) (value CommandStatus) {
+	value.terminate = true
+
+	var err error
+
+	if value.code, err = strconv.Atoi(args[0]); err != nil {
+		fmt.Fprint(c.stderr, "exit requires one integer parameter\n")
+
 		value.code = 1
 	}
 
 	return
 }
 
-type CmdExit struct{}
+// type CmdEcho struct {
+// 	CmdBase
+// }
 
-func (c CmdExit) Name() string {
-	return "exit"
-}
+// func (c CmdEcho) Name() string {
+// 	return "echo"
+// }
 
-var cmdExitErr = newGenericStatusError(
-	fmt.Errorf("exit requires one integer parameter"),
-)
-
-func (c CmdExit) Exec(args []string) (value CommandStatus) {
-	value.terminate = true
-	if value.code, value.err = strconv.Atoi(args[0]); value.err != nil {
-		return cmdExitErr
-	}
+func ExecEcho(c *CmdBase, args []string) (value CommandStatus) {
+	fmt.Fprintf(c.outWriter, "%s\n", strings.Join(args, " "))
 
 	return
 }
 
-type CmdEcho struct{}
+// type CmdType struct {
+// 	CmdBase
+// }
 
-func (c CmdEcho) Name() string {
-	return "echo"
-}
+// func (c CmdType) Name() string {
+// 	return "type"
+// }
 
-func (c CmdEcho) Exec(args []string) (value CommandStatus) {
-	value.Stdout = []byte(strings.Join(args, " ") + "\n")
-
-	return
-}
-
-type CmdType struct{}
-
-func (c CmdType) Name() string {
-	return "type"
-}
-
-func (c CmdType) Exec(args []string) (value CommandStatus) {
-	value.initBuffer()
-
+func ExecType(c *CmdBase, args []string) (value CommandStatus) {
 	cmdStr := args[0]
 
-	if GetCommandIndex().Find(cmdStr) {
-		value.Stdout = fmt.Appendf(
-			value.Stdout,
-			"%s is a shell builtin\n",
-			cmdStr,
-		)
-	} else if cmd, found := findCmdInPath(cmdStr); found {
-		value.Stdout = fmt.Appendf(value.Stdout, "%s is %s\n", cmdStr, cmd.path)
+	if GetCommandsIndex().Find(cmdStr) {
+		fmt.Fprintf(c.outWriter, "%s is a shell builtin\n", cmdStr)
+	} else if cmdPath, found := findCmdPath(cmdStr); found {
+		fmt.Fprintf(c.outWriter, "%s is %s\n", cmdStr, cmdPath)
 	} else {
-		value = newNotFoundError(cmdStr)
+		fmt.Fprintf(c.stderr, "%s: not found\n", cmdStr)
+
+		value = newErrorStatus()
 	}
 
 	return
 }
 
-type CmdPwd struct{}
+// type CmdPwd struct{ CmdBase }
 
-func (c CmdPwd) Name() string {
-	return "pwd"
-}
+// func (c CmdPwd) Name() string {
+// 	return "pwd"
+// }
 
-func (c CmdPwd) Exec(args []string) (value CommandStatus) {
+func ExecPwd(c *CmdBase, args []string) CommandStatus {
 	if pwd, err := os.Getwd(); err != nil {
-		value = newGenericStatusError(err)
+		return newErrorStatus()
 	} else {
-		value.Stdout = []byte(pwd + "\n")
+		fmt.Fprintln(c.outWriter, pwd)
 	}
 
-	return
+	return CommandStatus{}
 }
 
-type CmdCd struct{}
+// type CmdCd struct{ CmdBase }
 
-func (c CmdCd) Name() string {
-	return "cd"
-}
+// func (c CmdCd) Name() string {
+// 	return "cd"
+// }
 
-func (c CmdCd) Exec(args []string) (value CommandStatus) {
+func ExecCd(c *CmdBase, args []string) (value CommandStatus) {
 	dir := args[0]
 	if dir == "~" {
 		dir, _ = os.UserHomeDir()
 	}
 
 	if os.Chdir(dir) != nil {
-		value = newGenericStatusError(c.noDirError(dir))
+		fmt.Fprintf(
+			c.stderr,
+			"%s: %s: No such file or directory\n",
+			c.Name(),
+			dir,
+		)
+
+		value = newErrorStatus()
 	}
 
 	return
 }
 
-func (c CmdCd) noDirError(dirname string) error {
-	return fmt.Errorf("%s: %s: No such file or directory", c.Name(), dirname)
+// var commands = [...]Command{
+// 	&CmdCd{},
+// 	&CmdEcho{},
+// 	&CmdExit{},
+// 	&CmdPwd{},
+// 	&CmdType{},
+// }
+
+type CommandsIndex map[string]ExecFunc
+
+var (
+	commandsIndex     *CommandsIndex
+	commandsIndexOnce sync.Once
+)
+
+func GetCommandsIndex() *CommandsIndex {
+	commandsIndexOnce.Do(func() {
+		commandsIndex = &CommandsIndex{
+			"exit": ExecExit,
+			"cd":   ExecCd,
+			"echo": ExecEcho,
+			"pwd":  ExecPwd,
+			"type": ExecType,
+		}
+	})
+
+	return commandsIndex
 }
 
-var commands = [...]Command{
-	CmdCd{},
-	CmdEcho{},
-	CmdExit{},
-	CmdPwd{},
-	CmdType{},
+func (i CommandsIndex) Get(name string) (*CmdBase, bool) {
+	if cmd, found := i[name]; found {
+		return NewCmdBase(name, cmd), found
+	}
+
+	cmdPath, found := findCmdPath(name)
+
+	if found {
+		cmd := NewCmdBase(name, ExecFromPath)
+		cmd.path = cmdPath
+
+		return cmd, true
+	}
+
+	return &CmdBase{}, false
+}
+
+func (i CommandsIndex) Find(name string) (found bool) {
+	_, found = i[name]
+
+	return
 }
