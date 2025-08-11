@@ -93,51 +93,18 @@ func CreateAppendFile(path string) (*os.File, error) {
 	)
 }
 
-// type CommandIndex struct {
-// 	index map[string]Command
-// }
-
-// func NewCommandIndex() (index *CommandIndex) {
-// 	index = &CommandIndex{
-// 		index: make(
-// 			map[string]Command,
-// 			min(len(commands), defaultCommandIndexCapacity),
-// 		),
-// 	}
-
-// 	for _, cmd := range commands {
-// 		index.index[cmd.Name()] = cmd
-// 	}
-
-// 	return
-// }
-
-// var (
-// 	commandIndex     *CommandIndex
-// 	commandIndexOnce sync.Once
-// )
-
-// func GetCommandIndex() *CommandIndex {
-// 	commandIndexOnce.Do(func() {
-// 		commandIndex = NewCommandIndex()
-// 	})
-
-// 	return commandIndex
-// }
+type CommandHistory struct {
+	cmds []string
+}
 
 func ExecCommand(argsStr string) (status CommandStatus) {
 	parsedArgs, stdout, stderr := parseCommandArgs(argsStr)
-	// var stdout io.Writer = os.Stdout
-	// var stderr io.Writer = os.Stderr
+
 	var stdin io.Reader
 
 	lastStatus := make(chan CommandStatus, 1)
-	// copyDone := make(chan struct{}, 1)
-	// defer close(lastStatus)
-	// defer close(copyDone)
 
 	for i, parsed := range parsedArgs.cmds {
-		// log.Println(parsed)
 		cmd, found := GetCommandsIndex().Get(parsed.name)
 
 		if !found {
@@ -147,14 +114,9 @@ func ExecCommand(argsStr string) (status CommandStatus) {
 		}
 
 		cmd.SetIO(stdin, stderr)
-		// log.Println(cmd)
 		stdin = cmd.GetStdout()
 
 		if i == len(parsedArgs.cmds)-1 {
-			// log.Println(cmd.Name())
-			// if cmd.name == "echo" {
-			// 	log.Println(stdout, os.Stdout)
-			// }
 			go cmd.ExecGo(parsed.args, lastStatus)
 		} else {
 			go cmd.Exec(parsed.args)
@@ -177,15 +139,6 @@ func ExecCommand(argsStr string) (status CommandStatus) {
 	}()
 
 	wg.Wait()
-
-	// for range 2 {
-	// 	select {
-	// 	case <-copyDone:
-	// 	case status = <-lastStatus:
-	// 	}
-	// }
-
-	// status = <-lastStatus
 
 	return status
 }
