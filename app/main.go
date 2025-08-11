@@ -15,21 +15,47 @@ func readUntilTerminator() (string, keys.KeyCode) {
 
 	var lastKey keys.KeyCode
 
+	// str, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	// input.WriteString(str)
+
 	keyboard.Listen(func(key keys.Key) (stop bool, err error) {
 		switch lastKey = key.Code; lastKey {
+		case keys.CtrlD:
+			os.Exit(0)
 		case keys.Enter, keys.Tab, keys.Up, keys.Down:
 			return true, nil
-		case keys.CtrlC:
-			return true, nil
+		// case keys.CtrlC:
+		// 	return true, nil
+		// case keys.Backspace:
+		// 	prev := input.String()[:input.Len()-1]
+		// 	input.Reset()
+		// 	input.WriteString(prev)
+		// 	fmt.Printf("\r$ %s\n", prev)
+		case keys.Space:
+			input.WriteRune(' ')
+			fmt.Print(" ")
+		// 	log.Panicf("space! %q %q", key.String(), key.Runes)
+		case keys.RuneKey:
+			// log.Println(key)
+			// if len(key.String()) == 1 {
+			input.WriteString(key.String())
+			fmt.Print(key.String())
+
+			if strings.HasSuffix(input.String(), "\n") {
+				return true, nil
+			}
+
 		default:
-			if key.String() != "" {
-				input.WriteString(key.String())
-				// fmt.Print(key.String())
+			if len(key.Runes) == 1 {
+				input.WriteString(string(key.Runes))
+				fmt.Print(string(key.Runes))
 			}
 		}
 
 		return false, nil
 	})
+
+	// fmt.Fprint(os.Stdout, input.String())
 
 	return input.String(), lastKey
 }
@@ -40,7 +66,9 @@ func main() {
 			panic(err)
 		}
 
-		// input, err := bufio.NewReader(os.Stdin).ReadString('\n')
+		// input := readArrowKey()
+
+		// input, err := bufio.NewReader(os.Stdin).ReadByte()
 		// if err != nil {
 		// 	panic(err)
 		// }

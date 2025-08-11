@@ -219,13 +219,14 @@ func ExecCd(c *CmdBase, args []string) (value CommandStatus) {
 	return
 }
 
-// var commands = [...]Command{
-// 	&CmdCd{},
-// 	&CmdEcho{},
-// 	&CmdExit{},
-// 	&CmdPwd{},
-// 	&CmdType{},
-// }
+func ExecHistory(c *CmdBase, args []string) CommandStatus {
+	// if pwd, err := os.Getwd(); err != nil {
+	// 	return newErrorStatus()
+	// } else {
+	// 	fmt.Fprintln(c.outWriter, pwd)
+	// }
+	return CommandStatus{}
+}
 
 type CommandsIndex map[string]ExecFunc
 
@@ -237,11 +238,12 @@ var (
 func GetCommandsIndex() *CommandsIndex {
 	commandsIndexOnce.Do(func() {
 		commandsIndex = &CommandsIndex{
-			"exit": ExecExit,
-			"cd":   ExecCd,
-			"echo": ExecEcho,
-			"pwd":  ExecPwd,
-			"type": ExecType,
+			"cd":      ExecCd,
+			"echo":    ExecEcho,
+			"exit":    ExecExit,
+			"history": ExecHistory,
+			"pwd":     ExecPwd,
+			"type":    ExecType,
 		}
 	})
 
