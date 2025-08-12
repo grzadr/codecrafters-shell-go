@@ -15,29 +15,16 @@ func readUntilTerminator() (string, keys.KeyCode) {
 
 	var lastKey keys.KeyCode
 
-	// str, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-	// input.WriteString(str)
-
 	keyboard.Listen(func(key keys.Key) (stop bool, err error) {
 		switch lastKey = key.Code; lastKey {
 		case keys.CtrlD:
 			os.Exit(0)
 		case keys.Enter, keys.Tab, keys.Up, keys.Down:
 			return true, nil
-		// case keys.CtrlC:
-		// 	return true, nil
-		// case keys.Backspace:
-		// 	prev := input.String()[:input.Len()-1]
-		// 	input.Reset()
-		// 	input.WriteString(prev)
-		// 	fmt.Printf("\r$ %s\n", prev)
 		case keys.Space:
 			input.WriteRune(' ')
 			fmt.Print(" ")
-		// 	log.Panicf("space! %q %q", key.String(), key.Runes)
 		case keys.RuneKey:
-			// log.Println(key)
-			// if len(key.String()) == 1 {
 			input.WriteString(key.String())
 			fmt.Print(key.String())
 

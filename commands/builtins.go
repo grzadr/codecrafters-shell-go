@@ -225,6 +225,10 @@ func ExecHistory(c *CmdBase, args []string) CommandStatus {
 	// } else {
 	// 	fmt.Fprintln(c.outWriter, pwd)
 	// }
+	for i, cmd := range getCommandHistory().cmds {
+		fmt.Fprintf(c.outWriter, "    %d %s", i + 1, cmd)
+	}
+
 	return CommandStatus{}
 }
 

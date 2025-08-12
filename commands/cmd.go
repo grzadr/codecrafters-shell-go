@@ -9,10 +9,9 @@ import (
 )
 
 const (
-	defaultArgsBuffer              = 8
-	defaultCommandIndexCapacity    = 16
-	defaultCommandStatusBufferSize = 1024
-	defaultFileMode                = 0o644
+	defaultArgsBuffer  = 8
+	defaultHistorySize = 16
+	defaultFileMode    = 0o644
 )
 
 type CommandStatus struct {
@@ -25,37 +24,9 @@ func newErrorStatus() CommandStatus {
 	return CommandStatus{code: 1}
 }
 
-// func newUnknownCommandError(name string) CommandStatus {
-// 	return CommandStatus{
-// 		code:      1,
-// 		err:       fmt.Errorf("%s: command not found", name),
-// 		terminate: false,
-// 	}
-// }
-
-// func newNotFoundError(name string) CommandStatus {
-// 	return CommandStatus{
-// 		code:      1,
-// 		err:       fmt.Errorf("%s: not found", name),
-// 		terminate: false,
-// 	}
-// }
-
-func (s CommandStatus) Failed() bool {
-	return s.code != 0
-}
-
-// func (s CommandStatus) Error() string {
-// 	return s.err.Error()
-// }
-
 func (s CommandStatus) Exit() (bool, int) {
 	return s.terminate, s.code
 }
-
-// func (s CommandStatus) initBuffer() {
-// 	s.Stdout = make([]byte, 0, defaultCommandStatusBufferSize)
-// }
 
 func findCmdPath(name string) (cmdPath string, found bool) {
 	// for dir := range strings.SplitSeq(os.Getenv("PATH"), ":") {
@@ -94,10 +65,32 @@ func CreateAppendFile(path string) (*os.File, error) {
 }
 
 type CommandHistory struct {
-	cmds []string
+	cmds    []string
+	current int
+}
+
+func (h *CommandHistory) append(cmd string) {
+	h.cmds = append(h.cmds, cmd)
+	h.current = len(h.cmds) - 1
+}
+
+var (
+	history     *CommandHistory
+	historyOnce sync.Once
+)
+
+func getCommandHistory() *CommandHistory {
+	historyOnce.Do(func() {
+		history = &CommandHistory{
+			cmds: make([]string, 0, defaultHistorySize),
+		}
+	})
+
+	return history
 }
 
 func ExecCommand(argsStr string) (status CommandStatus) {
+	getCommandHistory().append(argsStr)
 	parsedArgs, stdout, stderr := parseCommandArgs(argsStr)
 
 	var stdin io.Reader
