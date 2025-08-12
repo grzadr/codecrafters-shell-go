@@ -40,6 +40,7 @@ func (m *CmdPrefixMatched) FindClosest(
 		return
 	case 1:
 		name, found = (*m)[0], true
+		name += " "
 	default:
 		name, found = m.findNext(prefix)
 	}
@@ -65,7 +66,7 @@ func (m *CmdPrefixMatched) findNext(prefix string) (next string, found bool) {
 	if refNum == -1 {
 		return next, found
 	} else if refNum == len(*m)-1 {
-		return ref, true
+		return ref + " ", true
 	}
 
 	total := 0
@@ -79,7 +80,11 @@ func (m *CmdPrefixMatched) findNext(prefix string) (next string, found bool) {
 		}
 	}
 
-	return (*m)[refNum+1], total == isPrefixed
+	// if total == 1 {
+	// 	ref += " "
+	// }
+
+	return ref, total == isPrefixed
 }
 
 func FindCmdPrefixPath(prefix string) (matched CmdPrefixMatched) {

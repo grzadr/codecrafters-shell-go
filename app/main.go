@@ -46,7 +46,7 @@ func readUntilTerminator() (string, keys.KeyCode) {
 			} else if lastMatched != nil {
 				if name, found := lastMatched.FindClosest(prefix); found {
 					input.Reset()
-					input.WriteString(name + " ")
+					input.WriteString(name)
 					fmt.Printf("%s%s$ %s", ClearLine, MoveCursor, input.String())
 				} else {
 					fmt.Printf("\n%s\n$ %s", strings.Join(lastMatched, "  "), prefix)
@@ -54,7 +54,7 @@ func readUntilTerminator() (string, keys.KeyCode) {
 			} else if lastMatched = index.MatchInPath(prefix); len(lastMatched) > 0 {
 				if name, found := lastMatched.FindClosest(prefix); found {
 					input.Reset()
-					input.WriteString(name + " ")
+					input.WriteString(name)
 					fmt.Printf("%s%s$ %s", ClearLine, MoveCursor, input.String())
 				} else {
 					fmt.Print(BellRing)
