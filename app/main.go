@@ -27,12 +27,11 @@ func readUntilTerminator() (string, keys.KeyCode) {
 		case keys.Up:
 			input.Reset()
 			input.WriteString(commands.GetCommandHistory().Prev())
-			// fmt.Printf("$ %s", input.String())
 			fmt.Printf("%s%s$ %s", ClearLine, MoveCursor, input.String())
 		case keys.Down:
 			input.Reset()
 			input.WriteString(commands.GetCommandHistory().Next())
-			fmt.Print(input.String())
+			fmt.Printf("%s%s$ %s", ClearLine, MoveCursor, input.String())
 		case keys.Tab:
 		case keys.Enter:
 			return true, nil
