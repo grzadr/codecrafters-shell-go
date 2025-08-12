@@ -107,4 +107,6 @@ func main() {
 			os.Exit(code)
 		}
 	}
+
+	commands.GetCommandHistory().WriteToEnv()
 }

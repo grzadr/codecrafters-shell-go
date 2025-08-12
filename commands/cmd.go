@@ -159,6 +159,12 @@ func (h *CommandHistory) append(cmd string) {
 	h.current = h.size() - 1
 }
 
+func (h *CommandHistory) WriteToEnv() {
+	if histpath, found := os.LookupEnv("HISTFILE"); found {
+		history.writeToFile(histpath)
+	}
+}
+
 func (h *CommandHistory) writeToFile(filepath string) {
 	file, _ := CreateEmptyFile(filepath)
 	defer file.Close()
