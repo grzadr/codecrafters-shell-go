@@ -36,8 +36,8 @@ func readUntilTerminator() (string, keys.KeyCode) {
 			name, found := commands.GetCommandsIndex().Match(input.String())
 			if found {
 				input.Reset()
-				input.WriteString(name)
-				fmt.Printf("%s%s$ %s ", ClearLine, MoveCursor, input.String())
+				input.WriteString(name + " ")
+				fmt.Printf("%s%s$ %s", ClearLine, MoveCursor, input.String())
 			}
 
 		case keys.Enter, keys.CtrlJ:
