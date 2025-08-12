@@ -90,8 +90,6 @@ func readUntilTerminator() (string, keys.KeyCode) {
 }
 
 func main() {
-	defer commands.GetCommandHistory().WriteToEnv()
-
 	for {
 		if _, err := fmt.Fprint(os.Stdout, "$ "); err != nil {
 			panic(err)
@@ -106,6 +104,7 @@ func main() {
 		status := commands.ExecCommand(input)
 
 		if exit, code := status.Exit(); exit {
+			commands.GetCommandHistory().WriteToEnv()
 			os.Exit(code)
 		}
 	}
