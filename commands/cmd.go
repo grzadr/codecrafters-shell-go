@@ -29,20 +29,28 @@ func (s CommandStatus) Exit() (bool, int) {
 	return s.terminate, s.code
 }
 
+func findCmdPrefixPath(prefix string) (name string, found bool) {
+	for dir := range strings.SplitSeq(os.Getenv("PATH"), ":") {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+
+		for _, entry := range entries {
+			info, err := entry.Info()
+			if err != nil || info.Mode()&0o111 == 0 ||
+				!strings.HasPrefix(info.Name(), prefix) {
+				continue
+			}
+
+			return info.Name(), true
+		}
+	}
+
+	return
+}
+
 func findCmdPath(name string) (cmdPath string, found bool) {
-	// for dir := range strings.SplitSeq(os.Getenv("PATH"), ":") {
-	// 	entries, err := os.ReadDir(dir)
-	// 	if err != nil {
-	// 		continue
-	// 	}
-	// 	for _, entry := range entries {
-	// 		info, err := entry.Info()
-	// 		if err != nil || info.Mode()&0o111 == 0 || info.Name() != name {
-	// 			continue
-	// 		}
-	// 		return path.Join(dir, info.Name()), true
-	// 	}
-	// }
 	cmdPath, err := exec.LookPath(name)
 	found = err == nil
 
