@@ -86,8 +86,6 @@ func readUntilTerminator() (string, keys.KeyCode) {
 		return false, nil
 	})
 
-	// fmt.Fprint(os.Stdout, input.String())
-
 	return input.String(), lastKey
 }
 
@@ -96,13 +94,6 @@ func main() {
 		if _, err := fmt.Fprint(os.Stdout, "$ "); err != nil {
 			panic(err)
 		}
-
-		// input := readArrowKey()
-
-		// input, err := bufio.NewReader(os.Stdin).ReadByte()
-		// if err != nil {
-		// 	panic(err)
-		// }
 
 		input, _ := readUntilTerminator()
 

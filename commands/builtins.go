@@ -177,12 +177,6 @@ func ExecType(c *CmdBase, args []string) (value CommandStatus) {
 	return
 }
 
-// type CmdPwd struct{ CmdBase }
-
-// func (c CmdPwd) Name() string {
-// 	return "pwd"
-// }
-
 func ExecPwd(c *CmdBase, args []string) CommandStatus {
 	if pwd, err := os.Getwd(); err != nil {
 		return newErrorStatus()
@@ -192,12 +186,6 @@ func ExecPwd(c *CmdBase, args []string) CommandStatus {
 
 	return CommandStatus{}
 }
-
-// type CmdCd struct{ CmdBase }
-
-// func (c CmdCd) Name() string {
-// 	return "cd"
-// }
 
 func ExecCd(c *CmdBase, args []string) (value CommandStatus) {
 	dir := args[0]
@@ -219,18 +207,30 @@ func ExecCd(c *CmdBase, args []string) (value CommandStatus) {
 	return
 }
 
+func ExecHistoryArgs(
+	c *CmdBase,
+	history *CommandHistory,
+	flag, value string,
+) {
+	switch flag {
+	case "-r":
+		history.appendFromFile(value)
+	case "-a":
+		history.appendToFile(value)
+	}
+}
+
 func ExecHistory(c *CmdBase, args []string) CommandStatus {
 	history := GetCommandHistory()
 
-	showNum := 0
-
-	if len(args) > 0 {
+	switch len(args) {
+	case 0:
+		history.print(0, c.outWriter)
+	case 1:
 		n, _ := strconv.Atoi(args[0])
-		showNum = history.size() - n
-	}
-
-	for i, cmd := range history.cmds[showNum:] {
-		fmt.Fprintf(c.outWriter, "    %d %s\n", i+showNum, cmd)
+		history.print(n, c.outWriter)
+	case 2:
+		ExecHistoryArgs(c, history, args[0], args[1])
 	}
 
 	return CommandStatus{}

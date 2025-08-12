@@ -49,7 +49,6 @@ func (m *CmdPrefixMatched) FindClosest(
 }
 
 func (m *CmdPrefixMatched) findNext(prefix string) (next string, found bool) {
-	// ref := (*m)[0]
 	var ref string
 
 	refNum := -1
@@ -79,10 +78,6 @@ func (m *CmdPrefixMatched) findNext(prefix string) (next string, found bool) {
 			isPrefixed++
 		}
 	}
-
-	// if total == 1 {
-	// 	ref += " "
-	// }
 
 	return ref, total == isPrefixed
 }
@@ -136,8 +131,9 @@ func CreateAppendFile(path string) (*os.File, error) {
 }
 
 type CommandHistory struct {
-	cmds    []string
-	current int
+	cmds       []string
+	current    int
+	lastAppend int
 }
 
 func (h *CommandHistory) Prev() (cmd string) {
@@ -161,6 +157,41 @@ func (h *CommandHistory) size() int {
 func (h *CommandHistory) append(cmd string) {
 	h.cmds = append(h.cmds, strings.TrimSpace(cmd))
 	h.current = h.size() - 1
+}
+
+func (h *CommandHistory) appendToFile(filepath string) {
+	file, _ := CreateAppendFile(filepath)
+
+	for _, cmd := range h.cmds[h.lastAppend:] {
+		fmt.Fprintln(file, cmd)
+	}
+}
+
+func (h *CommandHistory) appendFromFile(filepath string) {
+	content, _ := os.ReadFile(filepath)
+
+	h.cmds = append(
+		h.cmds,
+		strings.Split(strings.TrimSpace(string(content)), "\n")...)
+	// h.cmds = append(h.cmds, strings.TrimSpace(cmd))
+	// h.current = h.size() - 1
+}
+
+func (h *CommandHistory) print(n int, writer io.Writer) {
+	showNum := h.size()
+	if n != 0 {
+		showNum = min(showNum, h.size()) - 1
+	} else {
+		showNum = 0
+	}
+
+	// log.Println(showNum)
+
+	// output = make([]string, n)
+
+	for i, cmd := range history.cmds[showNum:] {
+		fmt.Fprintf(writer, "    %d %s\n", i+showNum+1, cmd)
+	}
 }
 
 var (
