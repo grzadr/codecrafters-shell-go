@@ -180,7 +180,7 @@ func (h *CommandHistory) appendFromFile(filepath string) {
 func (h *CommandHistory) print(n int, writer io.Writer) {
 	showNum := h.size()
 	if n != 0 {
-		showNum = min(showNum, h.size()) - 1
+		showNum -= min(n, h.size())
 	} else {
 		showNum = 0
 	}
