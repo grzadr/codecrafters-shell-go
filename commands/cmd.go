@@ -165,6 +165,8 @@ func (h *CommandHistory) appendToFile(filepath string) {
 	for _, cmd := range h.cmds[h.lastAppend:] {
 		fmt.Fprintln(file, cmd)
 	}
+
+	h.lastAppend = h.size()
 }
 
 func (h *CommandHistory) appendFromFile(filepath string) {
@@ -173,8 +175,6 @@ func (h *CommandHistory) appendFromFile(filepath string) {
 	h.cmds = append(
 		h.cmds,
 		strings.Split(strings.TrimSpace(string(content)), "\n")...)
-	// h.cmds = append(h.cmds, strings.TrimSpace(cmd))
-	// h.current = h.size() - 1
 }
 
 func (h *CommandHistory) print(n int, writer io.Writer) {
