@@ -13,6 +13,7 @@ import (
 const (
 	ClearLine  = "\033[2K" // Clear entire line
 	MoveCursor = "\033[0G" // Move cursor to column 0
+	BellRing   = "\x07"
 )
 
 func readUntilTerminator() (string, keys.KeyCode) {
@@ -38,6 +39,8 @@ func readUntilTerminator() (string, keys.KeyCode) {
 				input.Reset()
 				input.WriteString(name + " ")
 				fmt.Printf("%s%s$ %s", ClearLine, MoveCursor, input.String())
+			} else {
+				fmt.Print(BellRing)
 			}
 
 		case keys.Enter, keys.CtrlJ:
