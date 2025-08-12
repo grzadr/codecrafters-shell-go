@@ -280,3 +280,13 @@ func (i CommandsIndex) Find(name string) (found bool) {
 
 	return
 }
+
+func (i CommandsIndex) Match(prefix string) (name string, found bool) {
+	for name = range i {
+		if found = strings.HasPrefix(name, prefix); found {
+			return
+		}
+	}
+
+	return
+}

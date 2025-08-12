@@ -33,8 +33,16 @@ func readUntilTerminator() (string, keys.KeyCode) {
 			input.WriteString(commands.GetCommandHistory().Next())
 			fmt.Printf("%s%s$ %s", ClearLine, MoveCursor, input.String())
 		case keys.Tab:
+			name, found := commands.GetCommandsIndex().Match(input.String())
+			if found {
+				input.Reset()
+				input.WriteString(name)
+				fmt.Printf("%s%s$ %s ", ClearLine, MoveCursor, input.String())
+			}
+
 		case keys.Enter, keys.CtrlJ:
 			fmt.Println()
+
 			return true, nil
 		case keys.Space:
 			input.WriteRune(' ')
@@ -48,12 +56,6 @@ func readUntilTerminator() (string, keys.KeyCode) {
 			}
 		default:
 			panic(key)
-			// default:
-			//
-			//	if len(key.Runes) == 1 {
-			//		input.WriteString(string(key.Runes))
-			//		fmt.Print(string(key.Runes))
-			//	}
 		}
 
 		return false, nil
