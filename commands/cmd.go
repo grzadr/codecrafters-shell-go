@@ -69,9 +69,13 @@ type CommandHistory struct {
 	current int
 }
 
+func (h *CommandHistory) size() int {
+	return len(h.cmds)
+}
+
 func (h *CommandHistory) append(cmd string) {
 	h.cmds = append(h.cmds, cmd)
-	h.current = len(h.cmds) - 1
+	h.current = h.size() - 1
 }
 
 var (
