@@ -78,8 +78,8 @@ func (h *CommandHistory) Prev() (cmd string) {
 }
 
 func (h *CommandHistory) Next() (cmd string) {
+	h.current = min(h.current+2, h.size()-1)
 	cmd = h.cmds[h.current]
-	h.current = min(h.current+1, h.size()-1)
 
 	return
 }
