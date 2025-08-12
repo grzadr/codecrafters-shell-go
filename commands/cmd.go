@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 )
 
@@ -69,12 +70,26 @@ type CommandHistory struct {
 	current int
 }
 
+func (h *CommandHistory) Prev() (cmd string) {
+	cmd = h.cmds[h.current]
+	h.current = max(h.current-1, 0)
+
+	return
+}
+
+func (h *CommandHistory) Next() (cmd string) {
+	cmd = h.cmds[h.current]
+	h.current = min(h.current+1, h.size()-1)
+
+	return
+}
+
 func (h *CommandHistory) size() int {
 	return len(h.cmds)
 }
 
 func (h *CommandHistory) append(cmd string) {
-	h.cmds = append(h.cmds, cmd)
+	h.cmds = append(h.cmds, strings.TrimSpace(cmd))
 	h.current = h.size() - 1
 }
 
@@ -83,7 +98,7 @@ var (
 	historyOnce sync.Once
 )
 
-func getCommandHistory() *CommandHistory {
+func GetCommandHistory() *CommandHistory {
 	historyOnce.Do(func() {
 		history = &CommandHistory{
 			cmds: make([]string, 0, defaultHistorySize),
@@ -94,7 +109,7 @@ func getCommandHistory() *CommandHistory {
 }
 
 func ExecCommand(argsStr string) (status CommandStatus) {
-	getCommandHistory().append(argsStr)
+	GetCommandHistory().append(argsStr)
 	parsedArgs, stdout, stderr := parseCommandArgs(argsStr)
 
 	var stdin io.Reader

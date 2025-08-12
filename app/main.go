@@ -10,6 +10,11 @@ import (
 	"github.com/codecrafters-io/shell-starter-go/commands"
 )
 
+const (
+	ClearLine  = "\033[2K" // Clear entire line
+	MoveCursor = "\033[0G" // Move cursor to column 0
+)
+
 func readUntilTerminator() (string, keys.KeyCode) {
 	var input strings.Builder
 
@@ -19,7 +24,17 @@ func readUntilTerminator() (string, keys.KeyCode) {
 		switch lastKey = key.Code; lastKey {
 		case keys.CtrlD:
 			os.Exit(0)
-		case keys.Enter, keys.Tab, keys.Up, keys.Down:
+		case keys.Up:
+			input.Reset()
+			input.WriteString(commands.GetCommandHistory().Prev())
+			// fmt.Printf("$ %s", input.String())
+			fmt.Printf("%s%s$ %s", ClearLine, MoveCursor, input.String())
+		case keys.Down:
+			input.Reset()
+			input.WriteString(commands.GetCommandHistory().Next())
+			fmt.Print(input.String())
+		case keys.Tab:
+		case keys.Enter:
 			return true, nil
 		case keys.Space:
 			input.WriteRune(' ')
@@ -31,12 +46,12 @@ func readUntilTerminator() (string, keys.KeyCode) {
 			if strings.HasSuffix(input.String(), "\n") {
 				return true, nil
 			}
-
-		default:
-			if len(key.Runes) == 1 {
-				input.WriteString(string(key.Runes))
-				fmt.Print(string(key.Runes))
-			}
+			// default:
+			//
+			//	if len(key.Runes) == 1 {
+			//		input.WriteString(string(key.Runes))
+			//		fmt.Print(string(key.Runes))
+			//	}
 		}
 
 		return false, nil
