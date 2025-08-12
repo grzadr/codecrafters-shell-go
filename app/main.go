@@ -33,7 +33,8 @@ func readUntilTerminator() (string, keys.KeyCode) {
 			input.WriteString(commands.GetCommandHistory().Next())
 			fmt.Printf("%s%s$ %s", ClearLine, MoveCursor, input.String())
 		case keys.Tab:
-		case keys.Enter:
+		case keys.Enter, keys.CtrlJ:
+			fmt.Println()
 			return true, nil
 		case keys.Space:
 			input.WriteRune(' ')
@@ -45,6 +46,8 @@ func readUntilTerminator() (string, keys.KeyCode) {
 			if strings.HasSuffix(input.String(), "\n") {
 				return true, nil
 			}
+		default:
+			panic(key)
 			// default:
 			//
 			//	if len(key.Runes) == 1 {
