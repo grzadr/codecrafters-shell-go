@@ -215,7 +215,7 @@ func ExecHistoryArgs(
 	switch flag {
 	case "-r":
 		history.appendFromFile(value)
-	case "-a":
+	case "-a", "-w":
 		history.appendToFile(value)
 	}
 }
