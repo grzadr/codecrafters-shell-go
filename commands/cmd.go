@@ -159,22 +159,37 @@ func (h *CommandHistory) append(cmd string) {
 	h.current = h.size() - 1
 }
 
+func (h *CommandHistory) writeToFile(filepath string) {
+	file, _ := CreateEmptyFile(filepath)
+	defer file.Close()
+
+	for _, cmd := range h.cmds {
+		fmt.Fprintln(file, strings.TrimSpace(cmd))
+	}
+
+	h.lastAppend = h.size()
+}
+
 func (h *CommandHistory) appendToFile(filepath string) {
 	file, _ := CreateAppendFile(filepath)
+	defer file.Close()
 
 	for _, cmd := range h.cmds[h.lastAppend:] {
-		fmt.Fprintln(file, cmd)
+		fmt.Fprintln(file, strings.TrimSpace(cmd))
 	}
 
 	h.lastAppend = h.size()
 }
 
 func (h *CommandHistory) appendFromFile(filepath string) {
-	content, _ := os.ReadFile(filepath)
+	data, _ := os.ReadFile(filepath)
 
-	h.cmds = append(
-		h.cmds,
-		strings.Split(strings.TrimSpace(string(content)), "\n")...)
+	content := strings.TrimSpace(string(data))
+	if len(content) == 0 {
+		return
+	}
+
+	h.cmds = append(h.cmds, strings.Split(content, "\n")...)
 }
 
 func (h *CommandHistory) print(n int, writer io.Writer) {
@@ -184,10 +199,6 @@ func (h *CommandHistory) print(n int, writer io.Writer) {
 	} else {
 		showNum = 0
 	}
-
-	// log.Println(showNum)
-
-	// output = make([]string, n)
 
 	for i, cmd := range history.cmds[showNum:] {
 		fmt.Fprintf(writer, "    %d %s\n", i+showNum+1, cmd)
