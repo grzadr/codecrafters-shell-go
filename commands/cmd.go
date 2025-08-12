@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -29,7 +30,61 @@ func (s CommandStatus) Exit() (bool, int) {
 	return s.terminate, s.code
 }
 
-func findCmdPrefixPath(prefix string) (name string, found bool) {
+type CmdPrefixMatched []string
+
+func (m *CmdPrefixMatched) FindClosest(
+	prefix string,
+) (name string, found bool) {
+	switch len(*m) {
+	case 0:
+		return
+	case 1:
+		name, found = (*m)[0], true
+	default:
+		name, found = m.findNext(prefix)
+	}
+
+	return
+}
+
+func (m *CmdPrefixMatched) findNext(prefix string) (next string, found bool) {
+	// ref := (*m)[0]
+	var ref string
+
+	refNum := -1
+
+	for i, other := range *m {
+		if strings.HasPrefix(other, prefix) {
+			ref = other
+			refNum = i
+
+			break
+		}
+	}
+
+	if refNum == -1 {
+		return next, found
+	} else if refNum == len(*m)-1 {
+		return ref, true
+	}
+
+	total := 0
+	isPrefixed := 0
+
+	for _, other := range (*m)[refNum+1:] {
+		total++
+
+		if strings.HasPrefix(other, ref) {
+			isPrefixed++
+		}
+	}
+
+	return (*m)[refNum+1], total == isPrefixed
+}
+
+func FindCmdPrefixPath(prefix string) (matched CmdPrefixMatched) {
+	matched = make(CmdPrefixMatched, 0)
+
 	for dir := range strings.SplitSeq(os.Getenv("PATH"), ":") {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
@@ -43,9 +98,11 @@ func findCmdPrefixPath(prefix string) (name string, found bool) {
 				continue
 			}
 
-			return info.Name(), true
+			matched = append(matched, info.Name())
 		}
 	}
+
+	slices.Sort(matched)
 
 	return
 }

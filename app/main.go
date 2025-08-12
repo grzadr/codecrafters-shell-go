@@ -21,6 +21,8 @@ func readUntilTerminator() (string, keys.KeyCode) {
 
 	var lastKey keys.KeyCode
 
+	var lastMatched commands.CmdPrefixMatched
+
 	keyboard.Listen(func(key keys.Key) (stop bool, err error) {
 		switch lastKey = key.Code; lastKey {
 		case keys.CtrlD:
@@ -34,12 +36,32 @@ func readUntilTerminator() (string, keys.KeyCode) {
 			input.WriteString(commands.GetCommandHistory().Next())
 			fmt.Printf("%s%s$ %s", ClearLine, MoveCursor, input.String())
 		case keys.Tab:
-			if name, found := commands.GetCommandsIndex().
-				Match(input.String()); found {
+			index := commands.GetCommandsIndex()
+			prefix := input.String()
+
+			if name, found := index.Match(prefix); found {
 				input.Reset()
 				input.WriteString(name + " ")
 				fmt.Printf("%s%s$ %s", ClearLine, MoveCursor, input.String())
+			} else if lastMatched != nil {
+				if name, found := lastMatched.FindClosest(prefix); found {
+					input.Reset()
+					input.WriteString(name + " ")
+					fmt.Printf("%s%s$ %s", ClearLine, MoveCursor, input.String())
+				} else {
+					fmt.Printf("\n%s\n$ %s", strings.Join(lastMatched, "  "), prefix)
+				}
+			} else if lastMatched = index.MatchInPath(prefix); len(lastMatched) > 0 {
+				if name, found := lastMatched.FindClosest(prefix); found {
+					input.Reset()
+					input.WriteString(name + " ")
+					fmt.Printf("%s%s$ %s", ClearLine, MoveCursor, input.String())
+				} else {
+					fmt.Print(BellRing)
+				}
 			} else {
+				lastMatched = nil
+
 				fmt.Print(BellRing)
 			}
 

@@ -288,7 +288,11 @@ func (i CommandsIndex) Match(prefix string) (name string, found bool) {
 		}
 	}
 
-	return findCmdPrefixPath(prefix)
+	return
+}
+
+func (i CommandsIndex) MatchInPath(prefix string) CmdPrefixMatched {
+	return FindCmdPrefixPath(prefix)
 }
 
 // func (i CommandsIndex) MatchInPath(prefix string) (name string, found bool) {
