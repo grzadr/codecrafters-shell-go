@@ -222,13 +222,14 @@ func ExecCd(c *CmdBase, args []string) (value CommandStatus) {
 func ExecHistory(c *CmdBase, args []string) CommandStatus {
 	history := getCommandHistory()
 
-	showNum := history.size()
+	showNum := 0
 	if len(args) > 0 {
-		showNum, _ = strconv.Atoi(args[0])
+		n, _ := strconv.Atoi(args[0])
+		showNum = history.size() - n
 	}
 
-	for i, cmd := range history.cmds[:showNum] {
-		fmt.Fprintf(c.outWriter, "    %d %s", i+1, cmd)
+	for i, cmd := range history.cmds[showNum:] {
+		fmt.Fprintf(c.outWriter, "    %d %s", i + showNum, cmd)
 	}
 
 	return CommandStatus{}
