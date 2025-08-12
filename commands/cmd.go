@@ -204,6 +204,9 @@ func GetCommandHistory() *CommandHistory {
 		history = &CommandHistory{
 			cmds: make([]string, 0, defaultHistorySize),
 		}
+		if histpath, found := os.LookupEnv("HISTFILE"); found {
+			history.appendFromFile(histpath)
+		}
 	})
 
 	return history
